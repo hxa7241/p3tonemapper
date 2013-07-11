@@ -1,0 +1,266 @@
+
+P3 Tonemapper Transition
+========================
+
+Harrison Ainsworth
+http://www.hxa7241.org/
+hxa7241 *at* gmail *dot* com
+
+2005-12-08
+2007-06-25
+
+Copyright (c) 2005, Harrison Ainsworth / HXA7241. All rights reserved.
+
+
+
+
+Contents
+--------
+
+* Version 1.3
+* Version 1.2
+* Todo
+* Analysis
+* Time
+
+
+
+
+Version 1.3
+-----------
+
+### timings ###
+
+ideal:
+* calibrate:       10% (no calibration:  3%)
+* foveal:           4% (no calibration:  5%)
+* glare:            0%
+* veil original:    0%
+* color:            0%
+* acuity:           0%
+* general tonemap: 86% (no calibration: 92%)
+
+human:
+MtTamNorth, -is:1000_0 -m1:h
+* calibrate:        3%
+* foveal:           1%
+* glare:           40%
+* veil original:   10%
+* color:            8%
+* acuity:          16%
+* general tonemap: 22%
+MtTamNorth, -is:0.5_0 -m1:h
+* calibrate:        1%
+* foveal:           1%
+* glare:           19%
+* veil original:    5%
+* color:            6%
+* acuity:          58%
+* general tonemap: 10%
+cornellbox, -is:1000_0 -m1:h
+* calibrate:        1%
+* foveal:           0%
+* glare:           84%
+* veil original:    2%
+* color:            3%
+* acuity:           4%
+* general tonemap:  6%
+cornellbox, -is:0.1_0 -m1:h
+* calibrate:        0%
+* foveal:           0%
+* glare:           31%
+* veil original:    1%
+* color:            1%
+* acuity:          65%
+* general tonemap:  2%
+
+brightness dependent:
+* color takes 1.5 times if gloomy
+* acuity takes: 400 bright, 20000 gloomy (50 times), 40000 total dark
+
+if not ideal:
+do: Veil construct and mix into original, and Acuity
+* Veil:        48%
+* Acuity:      35%
+add in one lump:
+* calibrate:    1%
+* foveal:       1%
+* color:        5%
+* tone adjust: 10%
+
+
+### time ###
+
+2 hours
+
+
+Version 1.2
+-----------
+
+### changes ###
+
+2007-06-26
+
+* fixed: all human mapping options jammed together (PerceptualMap.cpp::map)
+* fixed: // comments replaced by /**/ comments in C code (p3tmPerceptualMap-v12.h p3tmPerceptualMap.h)
+
+* added: handling 0 given as error message string (PerceptualMap.cpp::map)
+* added: simpler/safer wrapper functions to API (p3tmPerceptualMap-v12.h p3tmPerceptualMap.h p3tmPerceptualMap.cpp p3tmPerceptualMap.def)
+* added: API version change checking (p3tmPerceptualMap.cpp ::p3tmIsVersionSupported)
+
+* changed: application help message (app/p3tonemapper.cpp)
+* changed: improved documentation (p3tmPerceptualMap-v12.h p3tmPerceptualMap.h p3-tonemapper.readme.txt)
+* changed: updated build scripts to v12 and VC2005 (build-lib-vc.bat build-app-vc.bat build-lib-gcc.bat build-app-gcc.bat)
+
+* changed: faster Windows library
+* changed: smaller Windows library
+
+
+### web site ###
+
+* archives -- replace
+* p3tmPerceptualMap.h.html -- re-convert (parts)
+* tonemapper.rdf -- update
+* tonemapper.html
+   * usage/library -- rewrite...
+   * downloads -- update sizes, names, addresses
+
+* p3tonemapper.readme.txt -- delete
+* license.txt -- delete
+
+
+### time ###
+
+* 4 hours
+* 2 hours
+* 1 hours
+* 1 hours
+* 1 hours
+* 3 hours
+* 2 hours
+
+
+
+
+Todo
+----
+
+   make src release
+
+   build
+   
+   make exe-win release
+
+   test
+      gcc
+         modify build scripts
+            add TESTING to compile options
+         clean all
+            clean.bats
+            p3tonemapper .dll .lib .a .exp .exe
+         build lib
+         build app
+         run
+      vc
+         modify build script
+            add TESTING to compile options
+         clean all
+            clean.bats
+            p3tonemapper .dll .lib .a .exp .exe
+         build lib
+         build app
+         run
+
+   update
+      html
+
+
+* remove /// DEBUG ///
+
+* update version number and date
+   app help text
+   web page
+   ...
+
+* make dev version build
+
+   touch ?
+
+* make new archives
+* copy archives to website
+* extract some archive files to website
+* upload website changes
+
+
+
+
+analysis
+--------
+
+### lines ###
+
+(discluding reused)
+
+lib: 6874 - 1077       = 5797
+app: 6253 - 3592 - 108 = 2553
+
+total: 8350
+
+
+### hours ###
+
+inception + elaboration:  12.40
+construction:            266.27
+transition:                6.25
+
+total: 284.92
+
+
+### rate ###
+
+minutes per line
+
+inception + elaboration: 0.09
+construction:            1.91
+transition:              0.05
+
+total: 2.05
+
+
+### estimate ###
+
+lines: 2300
+(increase factor: 3.63)
+(must be test code)
+
+rate: 3
+(increase factor: 0.67)
+(must be test code)
+
+(a whole renderer of 160000 lines would take 11 years !)
+
+
+### feedback ###
+
+somehow feed back into requirements...
+
+classify source and anticipated solutions by broad algorithm/data-structure
+   tree
+   array
+   sheet / 2D array
+   iteration
+   windowing UI
+   ...
+
+
+
+
+Time
+----
+
+4
+2.25
+4
+
+total:
+10.25

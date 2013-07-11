@@ -1,0 +1,9 @@
+#!/bin/bash
+
+
+# build subprojects
+make/build-lib-gcc
+make/build-app-gcc
+
+
+exit

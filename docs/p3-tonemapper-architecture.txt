@@ -1,0 +1,486 @@
+
+P3 Tonemapper Architecture Description
+======================================
+
+
+### Harrison Ainsworth ###
+
+<http://www.hxa7241.org/tonemapper/>  
+hxa7241 *at* gmail *dot* com
+
+2005-11-26
+
+Copyright (c) 2005, Harrison Ainsworth / HXA7241.
+
+
+
+
+Contents
+--------
+
+* Proposition
+* Requirements
+* Analysis
+* Design
+* Deployment
+* Implementation
+* Test
+* Technical Notes
+* Plan
+* References
+* Time
+
+
+
+
+Proposition
+-----------
+
+Develop a premium tone-mapper component available as source code, library and executable.
+
+Implement Ward Larson's 1997 paper:
+
+>	'A Visibility Matching Tone Reproduction Operator for High Dynamic Range
+>	Scenes'  
+>	Ward Larson, Rushmeier, Piatko;  
+>	IEEE TVCG 1997.
+>
+>	<http://radsite.lbl.gov/radiance/papers/lbnl39882/tonemap.pdf>
+
+Tone mapping is a necessary stage of rendering, but it is usually an
+afterthought. A good component could fill a gap in the open-source rendering
+world. It can be well-separated and made reusable without architectural
+ramifications. It is quite small and simple, so do-able in a month or two.
+
+Aims:
+
+* well-separated and reusable
+* input common/usual/standard images
+* output common/usual/standard images
+* C++ code
+* Windows library and executable
+* Linux library and executable
+* be the best open-source tone-mapper (must have ambition!)
+
+
+
+
+Requirements
+------------
+
+Requirements are simple: there is only one use case, and a few supplementary
+features. The use case follows basic command-line tool form: read a file,
+process it, output a file. But this is augmented with an options file containing
+switches and metadata.
+
+
+### Use Case ###
+
+(actor - user, or renderer)
+1. issue command, input command file
+2. input HDR image (XYZ, RGB (maybe with conversion)) (RGBE or OpenEXR)
+3. (maybe read output error file, then repeat from first step)
+4. receive RGB int (8 or 16 bit) image file (PNG or PPM)
+
+
+### Use Case Features ###
+
+* human or ideal viewer
+* manual calibration of input image
+* tone, bloom, color, acuity
+* colorspace conversion
+* input: RGBE, OpenEXR
+* output: RGB int
+* output: PNG, PPM
+
+
+
+
+Analysis
+--------
+
+The primary division separates the user-interface application from the library.
+In the library the tonemapping specific algorithm is separated from more general
+graphics and utilities parts. In the application the image file formatting is
+separated.
+
+
+### Packages ###
+
+* tonemap  
+  -- algorithm specific classes
+* image  
+  -- image classes with color space awareness
+* format  
+  -- image file formatting functions for OpenEXR, RGBE, PNG and PPM
+
+reuse (and extend a little):
+* hxa7241_graphics  
+  -- general graphics code
+* hxa7241_general  
+  -- very general cross-project code
+
+
+### Package Dependencies ###
+
+* library
+	* tonemap
+		* PerceptualMap
+			* image
+			* Foveal
+				* ImageRgbFloat
+			* Veil
+				* ImageRgbFloat
+				* Foveal
+			* AcuityFilter
+				* ImageRgbFloat
+				* ColorSpace
+			* ColorAdjustment
+				* ImageRgbFloat
+				* ColorSpace
+			* ToneAdjustment
+				* ImageRgbFloat
+				* ImageRgbInt
+				* Foveal
+	* image
+		* ImageRgbFloat
+		* ImageRgbInt
+		* ColorSpace
+* application
+	* tonemap
+	* format
+		* ImageFormatter
+			* ImageRef
+			* OpenEXR
+			* RGBE
+			* libpng
+			* PPM
+* all
+	* general
+	* graphics
+		* general
+
+#### reused ####
+* general
+	* Array<>
+	* Clamps
+	* FpToInt
+	* Histogram
+	* Interval
+	* SamplesRegular1
+	* Sheet<>
+* graphics
+	* ColorConstants
+	* Vector3f
+	* Matrix3f
+
+
+
+
+Design
+------
+
+The main tonemap package classes fall into three groups: some specialised
+images, some image operators, and one overall workflow-context.
+
+
+### Components/Libraries Reused ###
+
+image file format support:
+* OpenEXR
+* libpng
+
+
+### Class Interfaces ###
+
+* PerceptualMap
+	* construct with options, or defaults
+	* set options
+	* get options
+	* map image to image
+
+* Foveal : ImageRgbFloat
+	* construct from original image
+
+* Veil : ImageRgbFloat
+	* construct from Foveal
+	* mix into ImageRgbFloat
+
+* ToneAdjustment
+	* construct with Foveal and output luminance range
+	* map ImageRgbFloat to ImageRgbInt
+
+* AcuityFilter
+	* map ImageRgbFloat to ImageRgbFloat
+
+* ColorAdjustment
+	* map ImageRgbFloat to ImageRgbFloat
+
+* ImageRgbFloat
+	* construct as storage reference or owned
+	* container adjustment
+	* pixel access
+	* color space access
+
+* ImageRgbInt
+	* construct as storage reference
+	* pixel access
+
+* ColorSpace
+	* construct with options
+	* set options
+	* convert a triple, forward or back
+
+
+### Sequences ###
+
+1. read commands
+2. read original image file
+3. make PerceptualMap object
+4. map original image to final image
+	1. make foveal image
+	2. apply human viewer limitations
+		1. make veil image
+		2. mix veil into foveal image
+		3. mix veil into original image
+		4. adjust original image for color sensitivity
+		5. filter original image for acuity
+	3. make ToneAdjustment
+		1. make histogram
+		2. adjust histogram
+		3. make cumulative function from histogram
+	4. map original image with ToneAdjustment
+5. write final image file
+
+
+
+
+Deployment
+----------
+
+A simple, basic form eases portability, and the usage is simple, so: a
+command-line program is best. This can be a thin wrapper to control a
+dynamic-link/shared library. Maybe the image format readers could be
+externalised as plugins.
+
+* command-line program
+	* in: commands, HDR RGB image in standard format
+	* out: integer RGB image in standard format
+* dynamic-link library
+	* used by command-line program, and usable by any other program
+	* lower-level programmatic interface
+* image format reader and writer plugins
+	* could look for dynamic-link libraries, and give each a chance to read
+
+
+
+
+Implementation
+--------------
+
+Just straightforward, portable C++.
+
+* C++, with exceptions, minimal template use, no RTTI
+* MSToolkit or MinGW compilers
+* almost nothing platform specific (some dynamic linking may be)
+
+
+
+
+Test
+----
+
+Not decided yet...
+Something precise and numerical is desirable.
+There are some source and result images, using the same algorithm, at:
+<http://www.anyhere.com/gward/hdrenc/pages/originals.html> ,
+and some calibrated images at:
+<http://www.mpi-inf.mpg.de/resources/hdr/gallery.html>
+
+
+
+
+Technical Notes
+---------------
+
+1. input original image
+	* pixels: RGB float (maybe with color space)
+
+2. make image of foveal values
+	* pixels: RGB float
+	* (box/cheap) filter to 1degree/pixel size
+	* pixelcount = 2 * tan( viewangle / 2 ) / 0.01745
+
+3. human viewer
+	* make image of veil, from foveal image
+		* pixels: RGB float
+		* same resolution as foveal image
+		* (color, not just luminance)
+		* (slowest part - big convolution ...)
+
+	* mix veil into foveal
+
+	* mix veil into original
+		* (with a bilinear interpolation)
+
+	* adjust original image for color sensitivity
+		* needs conversion to XYZ (to get foveal luminance)
+
+	* filter original image for acuity
+		* needs conversion to XYZ (to get foveal luminance)
+		* variable blur - mipmap?
+
+4. make histogram, from foveal image
+	* needs conversion to XYZ
+	* elements: log10 of luminances
+	* 100 bins
+	* min = min val, clamped to min of 10^-4
+	* max = max val
+	* log10lum -> log10lum
+	* (linearly interpolatable)
+
+5. adjust histogram
+	* clamp counts, using iterative convergence
+		* linear ceiling - ideal viewer
+		* varying ceiling - human viewer
+
+6. map original image with histogram
+
+7. output final image
+	* pixels: RGB int
+
+
+command file:
+* input image
+	* optional color space
+* is human viewer
+	* is glare
+	* is color sense
+	* is acuity
+* display
+	* black luminance
+	* white luminance
+
+
+(luminance is cd/m^2, remember?)
+
+
+
+
+Plan
+----
+
+### estimate ###
+
+* total size: 2300 lines (discluding reuse)
+* rate: 3 minutes per line
+* time: 115 hours ~ 28 days ~ 6 weeks ~ 1.3 months
+
+
+### elaboration order ###
+
+1. image types
+2. color conversion
+3. tonemap
+	1. PerceptualMap
+	2. Foveal
+	3. Veil
+	4. ToneAdjustment
+	5. AcuityFilter
+	6. ColorAdjustment
+4. formatting
+
+
+### construction order ###
+
+1.  basic skeleton app
+2.  image types
+3.  color conversion
+4.  PerceptualMap
+5.  Foveal
+6.  Veil
+7.  ToneAdjustment
+8.  AcuityFilter
+9.  ColorAdjustment
+10. basic formatters
+11. user application
+12. other formatters
+
+
+### next version prospectus ###
+
+* other pixel formats for library interface
+	* OpenEXR Half for input
+	* various interleavings of channels for input and output
+
+* accelerate
+	* C++ first
+	* CPU streaming instruction support
+	* assess graphics card use
+
+* flare feature  
+  -- the more localised eye scattering effects -- Cornell paper in Siggraph 1995
+
+* white/color shift feature  
+  -- simulating the human perception that white looks white even when
+  illumination is colored.  
+  -- research needed
+	* Von Kries transform ?
+	* Bradford transform ?
+
+
+
+
+References
+----------
+
+* 'A Visibility Matching Tone Reproduction Operator for High Dynamic Range
+  Scenes'  
+  Ward Larson, Rushmeier, Piatko;  
+  IEEE TVCG 1997.  
+  <http://radsite.lbl.gov/radiance/papers/lbnl39882/tonemap.pdf>
+
+* 'A Model of Visual Adaptation for Realistic Image Synthesis'  
+  Ferwerda, Pattanaik, Shirley, Greenberg;  
+  Siggraph 1996.  
+  <http://www.graphics.cornell.edu/pubs/1996/FPSG96.pdf>
+
+* 'Physically-based Glare Effects for Digital Images'  
+  Spencer, Shirley, Zimmerman, Greenberg;  
+  Siggraph 1995.  
+  <http://www.graphics.cornell.edu/pubs/1995/SSZG95.pdf>
+
+* 'Illumination And Color In Computer Generated Imagery'
+  Hall;  
+  Springer 1989.  
+  0-387-96774-5.
+
+* OpenEXR high dynamic range image format  
+  <http://www.openexr.com/>
+
+* Radiance PIC/RGBE image format  
+  <http://radsite.lbl.gov/radiance/refer/filefmts.pdf>
+
+* PNG image format  
+  <http://www.libpng.org/>
+
+* PPM image format  
+  <http://netpbm.sourceforge.net/doc/ppm.html>
+
+* sRGB color space  
+  <http://www.w3.org/Graphics/Color/sRGB>
+
+
+
+
+Time
+----
+
+### inception ###
+1.65
+
+### elaboration ###
+9
+
+### updating ###
+1.75

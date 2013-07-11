@@ -1,0 +1,1 @@
+c:\h\dev\projects\HxaBuild\HxaBuild.rb %1 HxaBuild-options-gcc.txt

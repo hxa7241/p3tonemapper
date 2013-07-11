@@ -1,0 +1,63 @@
+#--------------------------------------------------------------------#
+#                                                                    #
+#  HxaBuild version 1                                                #
+#  Copyright (c) 2005, Harrison Ainsworth.                           #
+#                                                                    #
+#  http://hxa7241.org/                                               #
+#                                                                    #
+#--------------------------------------------------------------------#
+
+# options file
+
+
+# values are single-line
+# list separators are ;
+# directory separators are / or \
+
+
+#-- metadata --#
+version = 1
+
+
+#-- project directories --#
+# (if relative, they are added to homeDir,
+# if homeDir is relative it is added to current dir)
+homeDir    = c:/h/dev/projects/p3tonemapper/library
+exeDir     = .
+objDir     = obj
+libDirList = lib
+srcDirList = src
+
+
+#-- compiler directories --#
+# (must be absolute)
+incPlatformDirList =
+libPlatformDirList =
+
+
+#-- filename extensions --#
+cppExtList = cpp;cxx;c++;cc;cp;c;CPP;CXX;C++;CC;CP;C;
+hppExtList = hpp;hxx;hh;h;HPP;HXX;HH;H
+rcExtList  = rc;RC
+objExtList = obj;OBJ
+resExtList = res;RES
+libExtList = lib;LIB
+exeExt     = dll
+
+
+#-- executable name --#
+exename = p3tonemapper-test-vc
+
+
+#-- compiler commands --#
+# whole-program optimization
+compilecommand = "C:\Program Files\Microsoft Visual C++ Toolkit 2003\bin\cl" /c /Ox /GL /G6 /TP /EHsc /GF /MT /W4 /nologo /V"(c) 2005 HXA7241" /D_PLATFORM_WIN /DTESTING ${ /I,incdirs} /Fo${objectfile} ${sourcefile}
+
+# whole-program optimization
+linkcommand = "C:\Program Files\Microsoft Visual C++ Toolkit 2003\bin\link" /DLL /DEF:p3tmPerceptualMap-test.def /LTCG /OPT:REF /OPT:NOWIN98 /VERSION:1.1 /OUT:${exepathname} kernel32.lib advapi32.lib ${libfiles} ${objfiles}
+
+#compilecommand = "C:\Program Files\Microsoft Visual C++ Toolkit 2003\bin\cl" /c /Ox /G6 /TP /EHsc /GF /MT /W4 /nologo /V"(c) 2005 HXA7241" /D_PLATFORM_WIN /DTESTING ${ /I,incdirs} /Fo${objectfile} ${sourcefile}
+
+#rccompilecommand =
+
+#linkcommand = "C:\Program Files\Microsoft Visual C++ Toolkit 2003\bin\link" /DLL /DEF:p3tmPerceptualMap-test.def /OPT:REF /OPT:NOWIN98 /VERSION:1.1 /OUT:${exepathname} kernel32.lib advapi32.lib ${libfiles} ${objfiles}

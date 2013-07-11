@@ -1,0 +1,314 @@
+
+P3 Tonemapper Construction
+==========================
+
+Harrison Ainsworth
+http://www.hxa7241.org/
+hxa7241 *at* gmail *dot* com
+
+2005-12-08
+2007-06-25
+2007-06-29
+
+Copyright (c) 2005, Harrison Ainsworth / HXA7241. All rights reserved.
+
+
+
+
+Contents
+--------
+
+* Todo
+* Time
+
+
+
+
+Todo
+----
+
+### code ###
+
+   application
+      p3tonemapper
+      exr
+         default name of shared lib (libIlmImf.so.2) ?
+         fail :"/usr/lib/libIlmImf.so.2: undefined symbol: _ZN3Iex7BaseExcD1Ev"
+            -Wl,-export-dynamic ???
+               hmmm, maybe
+            http://ksquirrel.sourceforge.net/
+               uses openexr purely dynamically
+                  qlibrary.cpp (trolltech qt)
+            dlopen needs RTLD_LAZY | RTLD_GLOBAL
+            need to also dlopen libIex.so.2 and libHalf.so.2 (before libIlmImf.so.2)
+      png
+         default name of shared lib (libpng.so.3 works) ?
+      rgbe
+         why wont ev_hdr.hdr read ?
+
+   linux changes:
+      DynamicLibraryInterface
+         changed (reint_cast to old-style):
+            FunctionPtr pFunction = (FunctionPtr)(::dlsym( libraryHandle, functionName ) );
+      exr
+         moved load library block to top of read()
+         rewrote lib load and free...
+      png
+         removed #include <setjmp.h>
+         moved load library block to top of read()
+
+   lib
+      gcc optimised
+         tests crash:
+            FpToInt, ColorSpace, ImageRgbInt, ImageRgbFloat, Foveal, Veil, ColorAdjustment, AcuityFilter, ToneAdjustment
+         remove: -fforce-addr -mfpmath=sse
+
+### review ###
+
+   p3tonemapper
+      consider exceptions
+
+### test ###
+
+   p3tonemapper_tonemap (hmmm...)
+      ToneAdjustment
+      PerceptualMap
+
+   application (leave them)
+      ImageRef
+      ImageFormatter
+
+### things ###
+
+   ToneAdjustment
+      why is the (human) ceiling blocky ?
+
+   more numerically secure - handling over/underflow, nans, ...
+      clamping formulas to defend against wild images (negs for one thing)...
+         there was definitely a problem with large input image values
+
+   absorb whitepoint into chromaticities ?
+
+   PerceptualMap::map
+      should original scaling and offset be xyz ?
+      no. let the client decide what the scaling and offset *mean*.
+
+   shouldnt there be a maximum luminance ? (human vision being limited)
+      1e+6 is reasonable
+
+   ensure it all works if RGB is defined as XYZ (identity color transform)
+      seems so...
+
+   set fp control bits
+      in library PerceptualMap::map (and restore at return)
+         unsigned int _controlfp( unsigned int new, unsigned int mask );
+         fpcntrl = ((fpcntrl & ~mask) | (new & mask))
+         0 bit enables exception
+         _controlfp( _MCW_EM | _RC_NEAR, _MCW_EM | _MCW_RC );
+      - done -
+
+   vc
+      replace /GX with /EHsc (exceptions...) (or /EHac ? (s may not unwind all destructors))
+      yes: /EHsc
+      - done -
+
+   __cdecl
+      remove
+      not needed unless compiled with vc /Gr or vc /Gz or gcc -mrtd, since the default (/Gd) produces c-calling convention functions
+      - done -
+
+   break into two projects
+      console app
+      dynamic library
+      building dll
+         vc
+            compile not with /Gr or /Gz
+            link with /DLL and /DEF:filename.def produces .dll and import .lib
+         gcc
+            -shared  filename.def  --out-implib libname.a
+      - done -
+
+### linux ###
+
+   linux dynamic linking
+      http://www.linuxdocs.org/HOWTOs/Program-Library-HOWTO/index.html
+      when compiling application use switch: -ldl
+      rename p3tonemapper-vc.dll to libp3tonemapper.so.1
+
+### version 1.2 ###
+
+- fix human mapping options
+   - PerceptualMap.cpp ::map // apply supplementary human limitations
+      The following are all always true:
+      const bool isGlare = (mappingFlags_m & GLARE) != 0;
+      const bool isColorSense = (mappingFlags_m & COLOR) != 0;
+      const bool isAcuity = (mappingFlags_m & ACUITY) != 0;
+- improve error string handling
+   - PerceptualMap.cpp ::map
+      handle pMessage128 being 0
+- add a simple/typed functions to main API
+   - p3tmPerceptualMap-v12.h (v11)
+   - p3tmPerceptualMap.h
+   - p3tmPerceptualMap.cpp
+   - p3tmPerceptualMap.def
+      - int p3tmMapFB( const void* perceptualMap, int i_width, int i_height,
+         const float* i_inBuffer, char* o_outBuffer, char* pMessage128 )
+      - int p3tmMapFBFull( 
+         const float* i_inChromaticities6,
+         const float* i_inWhitePoint2,
+         const float* i_inScalingAndOffset2,
+         float        i_inViewAngleHorizontal,
+         int          i_mappingFlags,
+         const float* i_outLuminanceRange2,
+         float        i_outGamma,
+         int i_width, int i_height,
+         const float* i_inBuffer, char* o_outBuffer, char* pMessage128 )
+      - int p3tmMapFBSimple( int i_mappingFlags, int i_width, int i_height,
+         const float* i_inBuffer, char* o_outBuffer )
+- handle API version change checking
+   - p3tmPerceptualMap.cpp ::p3tmIsVersionSupported
+- change // coments to /**/ in C headers
+   - p3tmPerceptualMap-v12.h
+   - p3tmPerceptualMap.h
+- update
+   - app/p3tonemapper.cpp
+- improve documentation
+   - p3tmPerceptualMap-v12.h
+   - p3tmPerceptualMap.h
+   - p3-tonemapper.readme.txt
+- update build scripts to v12 and VC2005 (etc.?)
+   - build-lib-vc.bat
+   - build-app-vc.bat
+   - build-lib-gcc.bat
+   - build-app-gcc.bat
+- update zip scripts
+   - zip-p3tm.bat
+   - release-exewin.bat
+   - release-src.bat
+- fix tests
+   - FpToInt.cpp test_ fp01ToDword -- maybe use hxa7241_cpp_library version
+   - ColorSpace.cpp test_ consistency -- (hxa7241_cpp_library ?)
+- fix application -z mapping flags display
+   - p3tonemapper.cpp
+- test usage
+
+### version 1.3 ###
+
+- change version number
+   - build-app-vc.bat
+   - build-lib-vc.bat
+   - build-lib-gcc
+   - release-exelinux
+   - release-exewin.bat
+   - release-src.bat
+   - zip-p3tm.bat
+- add asynchronous progress parameter (interface)
+   - p3tmPerceptualMap-v13.h
+   - p3tmPerceptualMap.h
+   - p3tmPerceptualMap.cpp
+   - p3tmPerceptualMap.def
+   - p3tonemapper.cpp
+* add asynchronous progress parameter (implementation)
+   * (time each part, allocate percentage sub-range accordingly)
+   * (remember it is read asynchronously)
+   * PerceptualMap
+* test usage
+
+### other next version ###
+
+* improve exceptions
+   improve content, as messages to the user
+   static const char arrays are sufficient
+   use/throw catenated std::strings ?
+* dynamic library searching
+   improve name matching to help find libraries in default
+* p3tonemapper_image
+   ImageRgbFloatIter
+   ImageRgbFloatIterConst
+      find a way to factor this with the non-const one
+* application
+   ImageFormatter
+      generalise for format libraries and selectors, with hashs etc...
+
+
+
+
+Time
+----
+
+general source setup
+   0.25
+
+build setup
+   4.0
+
+general source
+   23.3
+
+hxa7241_general
+   Array
+      7.43
+   Sheet
+      2.5
+   Clamps
+      0.68
+   FpToInt
+      15.23
+   Interval
+      5.45
+   Histogram
+      5.84
+   SamplesRegular1
+      4.19
+   DynamicLibraryInterface
+      1.67
+
+hxa7241_graphics
+   ColorConstants
+      1.0
+
+image
+   ColorSpace
+      5.03
+   ImageRgbFloat
+      10.78
+   ImageRgbInt
+      6.65
+
+tonemap
+   PerceptualMap
+      17.4
+   Foveal
+      13.66
+   ToneAdjustment
+      47.17
+   Veil
+      12.00
+   ColorAdjustment
+      7.65
+   AcuityFilter
+      1.18
+   p3tmPerceptualMap
+   p3tmPerceptual-v11
+      1.01
+
+format
+   exr
+      7.6
+   ppm
+      7.10
+   rgbe
+      22.2
+   png
+      14.43
+   ImageRef
+      1.7
+   ImageFormatter
+      3.81
+
+application
+   p3tonemapper
+      20.06
+
+total:
+266.27

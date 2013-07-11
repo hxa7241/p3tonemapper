@@ -1,0 +1,2 @@
+-le:c:\h\dev\projects\p3tonemapper\application\temp\IlmImf_dll.dll
+-lp:c:\h\dev\projects\p3tonemapper\application\temp\libpng13.dll
